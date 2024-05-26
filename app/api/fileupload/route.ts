@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { S3 } from "aws-sdk";
 import fs from "fs";
+import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 
-const r3 = new S3({
-  accessKeyId: process.env.accessKeyId,
-  secretAccessKey: process.env.secretAccessKey,
-  endpoint: process.env.endpoint,
+const r3 = new S3Client({
+  region: "auto",
+  endpoint: process.env.endpoint ?? "",
+  credentials: {
+    accessKeyId: process.env.accessKeyId ?? "",
+    secretAccessKey: process.env.secretAccessKey ?? "",
+  },
 });
 
 export const GET = async (req: NextRequest) => {
@@ -32,18 +36,20 @@ export const POST = async (req: NextRequest) => {
   }
   const bytes = await file.arrayBuffer();
   const buffer = Buffer.from(bytes);
-  try {
-    await r3
-      .upload({
-        Body: buffer,
-        Bucket: "mybucket",
-        Key: file.name,
-      })
-      .promise();
 
-    return NextResponse.json({ success: true, status: 200 });
+  const putObjectCommand = new PutObjectCommand({
+    Bucket: "mybucket",
+    Key: file.name,
+    Body: buffer,
+  });
+
+  try {
+    const response = await r3.send(putObjectCommand);
+    console.log("File uploaded successfully:", response);
+    return NextResponse.json({ sucess: true }, { status: 200 });
   } catch (error) {
-    return NextResponse.json({ success: false, status: 500 });
+    console.error("Error uploading file:", error);
+    return NextResponse.json({ sucess: false }, { status: 500 });
   }
 };
 
